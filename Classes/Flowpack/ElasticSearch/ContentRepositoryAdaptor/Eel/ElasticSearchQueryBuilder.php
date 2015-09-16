@@ -580,6 +580,61 @@ class ElasticSearchQueryBuilder implements QueryBuilderInterface, ProtectedConte
 		return $this->highlight(150, 2);
 	}
 
+
+	/**
+	 * @param string $searchWord
+	 * @return array
+	 * @api
+	 */
+
+	public function suggest($searchWord) {
+		$request = array(
+			'suggests' => array(
+				'text' => $searchWord,
+				'term' => array(
+					'field' => '_all'
+				)
+			)
+		);
+		$response = $this->elasticSearchClient->getIndex()->request('GET', '/_suggest', array(), json_encode($request))->getTreatedContent();
+		$suggestions = array_map(function($option) {
+			return $option;
+		}, $response['suggests'][0]['options']);
+		return $suggestions;
+	}
+
+
+	/**
+	 * @return array
+	 * @api
+	 */
+
+	public function aggregate() {
+		$aggregationArray = array(
+			'aggs' => array(
+				'type' => array(
+					'terms' => array(
+						'field' => '_type'
+					)
+				)
+
+
+			),
+			"size" => 0
+		);
+
+		$this->request = array_merge($this->request, $aggregationArray);
+		unset($this->request['highlight']);
+		unset($this->request['fields']);
+
+		$response = $this->elasticSearchClient->getIndex()->request('GET', '/_search', array(), json_encode($this->request))->getTreatedContent();
+		$suggestions = array_map(function($option) {
+			return $option;
+		}, $response['aggregations']['type']['buckets']);
+		return $suggestions;
+	}
+
+
 	/**
 	 * Configure Result Highlighting. Only makes sense in combination with fulltext(). By default, highlighting is enabled.
 	 * It can be disabled by calling "highlight(FALSE)".
